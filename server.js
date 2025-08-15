@@ -6,6 +6,10 @@ import OpenAI from "openai";
 import fs from "fs";
 import cors from "cors";
 
+const DATA_FILE = process.env.RENDER_DISK_PATH
+  ? `${process.env.RENDER_DISK_PATH}/siteData.txt`
+  : "siteData.txt"; 
+
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -17,7 +21,7 @@ app.use(cors({
 
 // Check OpenAI API key
 if (!process.env.OPENAI_API_KEY) {
-    console.error("❌ OPENAI_API_KEY not found in environment variables!");
+    // console.error("❌ OPENAI_API_KEY not found in environment variables!");
     process.exit(1);
 }
 
@@ -30,7 +34,7 @@ const openai = new OpenAI({
 // -------------------
 async function scrapePage(url) {
     try {
-        console.log(`📄 Scraping: ${url}`);
+        // console.log(`📄 Scraping: ${url}`);
         const res = await fetch(url, {
             timeout: 15000,
             headers: {
@@ -86,8 +90,8 @@ async function scrapePage(url) {
             .trim();
 
         // Log a preview of what we scraped
-        console.log(`✅ Scraped ${url}: ${cleanText.length} characters`);
-        console.log(`Preview: ${cleanText.substring(0, 200)}...`);
+            // console.log(`✅ Scraped ${url}: ${cleanText.length} characters`);
+            // console.log(`Preview: ${cleanText.substring(0, 200)}...`);
 
         return cleanText;
     } catch (error) {
@@ -97,7 +101,7 @@ async function scrapePage(url) {
 }
 
 async function scrapeWebsite() {
-    console.log("🚀 Starting website scraping...");
+    // console.log("🚀 Starting website scraping...");
 
     // Since scraping isn't working well, let's add manual content for now
     // and still try to scrape for any additional content
@@ -125,25 +129,25 @@ async function scrapeWebsite() {
     // Add comprehensive manual content about Yap Capitalist
     // This ensures the bot has good information to work with
 
-    fs.writeFileSync("siteData.txt", scrapedText, "utf8");
-    console.log(`✅ Content prepared! Manual content + ${successCount}/${pages.length} scraped pages`);
-    console.log(`📁 Total content: ${scrapedText.length} characters saved to siteData.txt`);
+fs.writeFileSync(DATA_FILE, scrapedText, "utf8");
+    // console.log(`✅ Content prepared! Manual content + ${successCount}/${pages.length} scraped pages`);
+    // console.log(`📁 Total content: ${scrapedText.length} characters saved to siteData.txt`);
 }
 
 // -------------------
 // STEP 2: Initialize scraping
 // -------------------
 async function initializeData() {
-    if (!fs.existsSync("siteData.txt")) {
-        console.log("📂 siteData.txt not found, scraping website...");
+   if (!fs.existsSync(DATA_FILE)) {
+        // console.log("📂 siteData.txt not found, scraping website...");
         await scrapeWebsite();
     } else {
-        const existingData = fs.readFileSync("siteData.txt", "utf8");
-        console.log(`📂 Found existing siteData.txt: ${existingData.length} characters`);
+       const existingData = fs.readFileSync(DATA_FILE, "utf8");
+        // console.log(`📂 Found existing siteData.txt: ${existingData.length} characters`);
 
         // If file is too small, re-scrape
         if (existingData.length < 100) {
-            console.log("⚠️  Existing data too small, re-scraping...");
+            // console.log("⚠️  Existing data too small, re-scraping...");
             await scrapeWebsite();
         }
     }
@@ -157,14 +161,14 @@ initializeData().catch(console.error);
 // -------------------
 app.get("/debug", (req, res) => {
     try {
-        if (!fs.existsSync("siteData.txt")) {
+        if (!fs.existsSync(DATA_FILE)) {
             return res.json({
                 status: "error",
-                message: "siteData.txt not found"
+                message: "DATA_FILE not found"
             });
         }
 
-        const siteData = fs.readFileSync("siteData.txt", "utf8");
+const siteData = fs.readFileSync(DATA_FILE, "utf8");
         res.json({
             status: "success",
             dataLength: siteData.length,
@@ -182,11 +186,11 @@ app.get("/debug", (req, res) => {
 // New endpoint to view scraped content in browser
 app.get("/view-data", (req, res) => {
     try {
-        if (!fs.existsSync("siteData.txt")) {
+        if (!fs.existsSync(DATA_FILE)) {
             return res.send("<h1>No data file found</h1>");
         }
 
-        const siteData = fs.readFileSync("siteData.txt", "utf8");
+        const siteData = fs.readFileSync(DATA_FILE, "utf8");
         const html = `
             <html>
                 <head><title>Scraped Website Data</title></head>
@@ -211,14 +215,14 @@ app.get("/view-data", (req, res) => {
 // -------------------
 app.get("/rescrape", async (req, res) => {
     try {
-        console.log("🔄 Manual re-scrape requested");
+        // console.log("🔄 Manual re-scrape requested");
         await scrapeWebsite();
         res.json({
             status: "success",
             message: "Website re-scraped successfully"
         });
     } catch (error) {
-        console.error("Re-scrape error:", error);
+        // console.error("Re-scrape error:", error);
         res.status(500).json({
             status: "error",
             message: error.message
@@ -243,24 +247,24 @@ app.post("/chat", async (req, res) => {
         }
 
         // Check if data file exists
-        if (!fs.existsSync("siteData.txt")) {
-            console.log("❌ siteData.txt not found during chat request");
+        if (!fs.existsSync(DATA_FILE)) {
+            // console.log("❌ siteData.txt not found during chat request");
             return res.json({
                 answer: "I'm still loading website information. Please try again in a moment."
             });
         }
 
-        const siteData = fs.readFileSync("siteData.txt", "utf8");
+        const siteData = fs.readFileSync(DATA_FILE, "utf8");
 
         // Check if data is sufficient
         if (siteData.length < 100) {
-            console.log("❌ Site data too short:", siteData.length, "characters");
+            // console.log("❌ Site data too short:", siteData.length, "characters");
             return res.json({
                 answer: "I don't have enough website information loaded. Please try again later or contact support."
             });
         }
 
-        console.log(`💬 Processing question: "${message}" (Data: ${siteData.length} chars)`);
+        // console.log(`💬 Processing question: "${message}" (Data: ${siteData.length} chars)`);
 
         // Enhanced prompt with better instructions
         const prompt = `You are a knowledgeable assistant for Yap Capitalist. Use the website content below to answer questions accurately and specifically.
@@ -290,7 +294,7 @@ app.post("/chat", async (req, res) => {
         });
 
         const answer = completion.choices[0]?.message?.content || "I couldn't generate a response.";
-        console.log(`✅ Response generated: ${answer.substring(0, 100)}...`);
+        // console.log(`✅ Response generated: ${answer.substring(0, 100)}...`);
 
         res.json({ answer });
 
@@ -318,8 +322,8 @@ app.post("/chat", async (req, res) => {
 // STEP 6: Health check endpoint
 // -------------------
 app.get("/health", (req, res) => {
-    const hasData = fs.existsSync("siteData.txt");
-    const dataSize = hasData ? fs.readFileSync("siteData.txt", "utf8").length : 0;
+    const hasData = fs.existsSync(DATA_FILE);
+    const dataSize = hasData ? fs.readFileSync(DATA_FILE, "utf8").length : 0;
 
     res.json({
         status: "ok",

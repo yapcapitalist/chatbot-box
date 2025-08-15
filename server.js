@@ -7,9 +7,7 @@ import fs from "fs";
 import path from "path";
 import cors from "cors";
 
-const DATA_FILE = process.env.RENDER_DISK_PATH
-  ? `${process.env.RENDER_DISK_PATH}/siteData.txt`
-  : "siteData.txt"; 
+const DATA_FILE = "siteData.txt"; 
 
 dotenv.config();
 const app = express();
@@ -17,7 +15,8 @@ app.use(express.json());
 app.use(cors({
     origin: ['http://localhost:5173',
     'https://www.yapcapitalist.com',
-    'https://chatbot-box.onrender.com'],
+    'https://chatbot-box.onrender.com',
+    'https://your-railway-app.up.railway.app'], // Add your Railway domain here
     methods: ['GET', 'POST'],
     credentials: true
 }));
@@ -177,29 +176,42 @@ This platform appears to focus on business growth, investment strategies, and en
 }
 
 // -------------------
-// STEP 2: Initialize scraping
+// STEP 2: ENHANCED Initialize scraping (Railway optimized)
 // -------------------
 async function initializeData() {
     try {
         console.log(`🔍 Checking for data file: ${DATA_FILE}`);
         
-        if (!fs.existsSync(DATA_FILE)) {
-            console.log("📂 siteData.txt not found, scraping website...");
-            await scrapeWebsite();
-        } else {
+        // Check if we have a committed siteData.txt file
+        if (fs.existsSync(DATA_FILE)) {
             const existingData = fs.readFileSync(DATA_FILE, "utf8");
+            const stats = fs.statSync(DATA_FILE);
+            
             console.log(`📂 Found existing siteData.txt: ${existingData.length} characters`);
+            console.log(`📅 File last modified: ${stats.mtime}`);
 
-            // If file is too small, re-scrape
-            if (existingData.length < 100) {
-                console.log("⚠️  Existing data too small, re-scraping...");
-                await scrapeWebsite();
+            // If file has good content, use it (prioritize committed data)
+            if (existingData.length > 100) {
+                console.log("✅ Using existing siteData.txt from repository");
+                return; // Use the committed file - this makes it FAST!
+            } else {
+                console.log("⚠️  Existing data too small, will scrape...");
             }
+        } else {
+            console.log("📂 siteData.txt not found, will scrape website...");
         }
+        
+        // Only scrape if no valid committed file exists
+        await scrapeWebsite();
+        
     } catch (error) {
         console.error("❌ Error initializing data:", error.message);
-        // Create fallback content
-        const fallbackContent = "Yap Capitalist - Business consulting and investment platform.";
+        // Create fallback content as last resort
+        const fallbackContent = `
+=== YAP CAPITALIST - FALLBACK DATA ===
+Yap Capitalist - Business consulting and investment platform.
+Visit https://www.yapcapitalist.com/ for more information.
+        `.trim();
         writeFileSync(DATA_FILE, fallbackContent);
     }
 }
@@ -208,7 +220,7 @@ async function initializeData() {
 initializeData().catch(console.error);
 
 // -------------------
-// STEP 3: Debug endpoint to check data
+// STEP 3: Enhanced Debug endpoint with file info
 // -------------------
 app.get("/debug", (req, res) => {
     try {
@@ -221,12 +233,20 @@ app.get("/debug", (req, res) => {
         }
 
         const siteData = fs.readFileSync(DATA_FILE, "utf8");
+        const stats = fs.statSync(DATA_FILE);
+        const now = new Date();
+        const fileAge = Math.floor((now - stats.mtime) / (1000 * 60)); // minutes
+        
         res.json({
             status: "success",
             dataFile: DATA_FILE,
             dataLength: siteData.length,
-            preview: siteData.substring(0, 500) + "...", // Show preview instead of full content
-            hasContent: siteData.length > 100
+            lastModified: stats.mtime,
+            fileAgeMinutes: fileAge,
+            isRecentFile: fileAge < 10, // File is less than 10 minutes old
+            hasContent: siteData.length > 100,
+            preview: siteData.substring(0, 500) + "...",
+            platform: "Railway" // Helpful for debugging
         });
     } catch (error) {
         res.json({
@@ -245,6 +265,8 @@ app.get("/view-data", (req, res) => {
         }
 
         const siteData = fs.readFileSync(DATA_FILE, "utf8");
+        const stats = fs.statSync(DATA_FILE);
+        
         const html = `
             <html>
                 <head><title>Scraped Website Data</title></head>
@@ -252,6 +274,8 @@ app.get("/view-data", (req, res) => {
                     <h1>Scraped Website Content</h1>
                     <p><strong>File Path:</strong> ${DATA_FILE}</p>
                     <p><strong>Total Length:</strong> ${siteData.length} characters</p>
+                    <p><strong>Last Modified:</strong> ${stats.mtime}</p>
+                    <p><strong>Platform:</strong> Railway</p>
                     <hr>
                     <div style="white-space: pre-wrap; background: #f5f5f5; padding: 20px; border-radius: 5px;">
                         ${siteData.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
@@ -266,19 +290,61 @@ app.get("/view-data", (req, res) => {
 });
 
 // -------------------
-// STEP 4: Manual re-scrape endpoint
+// STEP 4: Enhanced manual re-scrape endpoint
 // -------------------
 app.get("/rescrape", async (req, res) => {
     try {
         console.log("🔄 Manual re-scrape requested");
         await scrapeWebsite();
+        
+        // Get updated file info
+        const stats = fs.statSync(DATA_FILE);
+        const siteData = fs.readFileSync(DATA_FILE, "utf8");
+        
         res.json({
             status: "success",
             message: "Website re-scraped successfully",
-            dataFile: DATA_FILE
+            dataFile: DATA_FILE,
+            dataLength: siteData.length,
+            lastUpdated: stats.mtime,
+            timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error("Re-scrape error:", error);
+        res.status(500).json({
+            status: "error",
+            message: error.message
+        });
+    }
+});
+
+// -------------------
+// NEW: Force refresh endpoint (useful for Railway deployments)
+// -------------------
+app.get("/force-refresh", async (req, res) => {
+    try {
+        console.log("🔄 Force refresh requested - will re-scrape regardless of existing data");
+        
+        // Delete existing file first
+        if (fs.existsSync(DATA_FILE)) {
+            fs.unlinkSync(DATA_FILE);
+            console.log("🗑️  Deleted existing siteData.txt");
+        }
+        
+        // Force scrape
+        await scrapeWebsite();
+        
+        const stats = fs.statSync(DATA_FILE);
+        const siteData = fs.readFileSync(DATA_FILE, "utf8");
+        
+        res.json({
+            status: "success",
+            message: "Force refresh completed - fresh data scraped",
+            dataLength: siteData.length,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error("Force refresh error:", error);
         res.status(500).json({
             status: "error",
             message: error.message
@@ -374,19 +440,29 @@ app.post("/chat", async (req, res) => {
 });
 
 // -------------------
-// STEP 6: Health check endpoint
+// STEP 6: Enhanced Health check endpoint
 // -------------------
 app.get("/health", (req, res) => {
     const hasData = fs.existsSync(DATA_FILE);
-    const dataSize = hasData ? fs.readFileSync(DATA_FILE, "utf8").length : 0;
+    let dataSize = 0;
+    let fileAge = null;
+    
+    if (hasData) {
+        dataSize = fs.readFileSync(DATA_FILE, "utf8").length;
+        const stats = fs.statSync(DATA_FILE);
+        fileAge = Math.floor((new Date() - stats.mtime) / (1000 * 60)); // minutes
+    }
 
     res.json({
         status: "ok",
         timestamp: new Date().toISOString(),
+        platform: "Railway",
         dataFile: DATA_FILE,
         hasData,
         dataSize,
-        openaiConfigured: !!process.env.OPENAI_API_KEY
+        fileAgeMinutes: fileAge,
+        openaiConfigured: !!process.env.OPENAI_API_KEY,
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
@@ -394,9 +470,11 @@ app.get("/health", (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚂 Platform: Railway`);
     console.log(`📁 Data file location: ${DATA_FILE}`);
     console.log(`🔧 Debug endpoint: http://localhost:${PORT}/debug`);
     console.log(`👀 View data: http://localhost:${PORT}/view-data`);
     console.log(`🔄 Re-scrape endpoint: http://localhost:${PORT}/rescrape`);
+    console.log(`⚡ Force refresh: http://localhost:${PORT}/force-refresh`);
     console.log(`❤️  Health check: http://localhost:${PORT}/health`);
 });

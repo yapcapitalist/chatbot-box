@@ -4,9 +4,10 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Armaan-pal/chatbot-box.git"
@@ -27,5 +28,4 @@
     "node-fetch": "^3.3.2",
     "openai": "^5.12.2"
   }
-  
 }

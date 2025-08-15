@@ -16,7 +16,7 @@ app.use(cors({
     origin: ['http://localhost:5173',
     'https://www.yapcapitalist.com',
     'https://chatbot-box.onrender.com',
-    'https://your-railway-app.up.railway.app'], // Add your Railway domain here
+    'https://chatbot-box-production.up.railway.app'], // Add your Railway domain here
     methods: ['GET', 'POST'],
     credentials: true
 }));

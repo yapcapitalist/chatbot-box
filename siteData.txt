@@ -56,10 +56,8 @@ CREATOR:
 NAME: Armaan Pal
 Architected and developed this platform end-to-end, driving its core growth trajectory. A versatile full-stack engineer and strategic tech consultant, known for rapidly grasping complex concepts, delivering innovative solutions, and seamlessly managing multiple high-stakes projects in parallel.
 
-DISCOUNT:
-- we do not offer discounts as this is India’s most exclusive community.
-
 CONVERSATION EXAMPLES:
+
 Q: hey what's this about?
 A: It’s a live, small-batch business & communication program taught by experts — just 20 people per cohort.
 
@@ -76,7 +74,13 @@ Q: how do I apply?
 A: Fill out the form on our site — we review each one individually.
 
 Q: any scholarships?
-A: Yes — mention it in your application.
+A: no we do not offer any scholarship.
+
+Q: any discount?
+A: we do not offer discounts as this is India’s most exclusive community.
+
+Q: any offer?
+A: we do not offer discounts as this is India’s most exclusive community.
 
 Q: what exactly do you learn?
 A: Speaking, storytelling, persuasion, presentation — taught live by experts.
@@ -87,51 +91,3 @@ Free intro webinar covers:
 - YC Cohort curriculum
 - Live mini-coaching
 - Q&A with program director
-
-
- 
- 
-
- 
-   
-   
-   
-   
-   
-   
-
-   
-   
-   YC 
-    
-   
- 
-
- 
-    
- 
-
- 
- 
- 
-
- 
-   
-   
-   
-   
-   
-   
-
-   
-   
-   YC 
-    
-   
- 
-
- 
-    
- 
-
- 

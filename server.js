@@ -4,6 +4,7 @@ import * as cheerio from "cheerio";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import fs from "fs";
+import path from "path";
 import cors from "cors";
 
 const DATA_FILE = process.env.RENDER_DISK_PATH
@@ -21,7 +22,7 @@ app.use(cors({
 
 // Check OpenAI API key
 if (!process.env.OPENAI_API_KEY) {
-    // console.error("❌ OPENAI_API_KEY not found in environment variables!");
+    console.error("❌ OPENAI_API_KEY not found in environment variables!");
     process.exit(1);
 }
 
@@ -29,12 +30,33 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+// Helper function to ensure directory exists
+function ensureDirectoryExists(filePath) {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+        console.log(`📁 Creating directory: ${dir}`);
+        fs.mkdirSync(dir, { recursive: true });
+    }
+}
+
+// Helper function to write file safely
+function writeFileSync(filePath, content) {
+    try {
+        ensureDirectoryExists(filePath);
+        fs.writeFileSync(filePath, content, "utf8");
+        console.log(`✅ File written successfully: ${filePath}`);
+    } catch (error) {
+        console.error(`❌ Error writing file ${filePath}:`, error.message);
+        throw error;
+    }
+}
+
 // -------------------
 // STEP 1: Scrape Website with better error handling
 // -------------------
 async function scrapePage(url) {
     try {
-        // console.log(`📄 Scraping: ${url}`);
+        console.log(`📄 Scraping: ${url}`);
         const res = await fetch(url, {
             timeout: 15000,
             headers: {
@@ -90,8 +112,8 @@ async function scrapePage(url) {
             .trim();
 
         // Log a preview of what we scraped
-            // console.log(`✅ Scraped ${url}: ${cleanText.length} characters`);
-            // console.log(`Preview: ${cleanText.substring(0, 200)}...`);
+        console.log(`✅ Scraped ${url}: ${cleanText.length} characters`);
+        console.log(`Preview: ${cleanText.substring(0, 200)}...`);
 
         return cleanText;
     } catch (error) {
@@ -101,10 +123,7 @@ async function scrapePage(url) {
 }
 
 async function scrapeWebsite() {
-    // console.log("🚀 Starting website scraping...");
-
-    // Since scraping isn't working well, let's add manual content for now
-    // and still try to scrape for any additional content
+    console.log("🚀 Starting website scraping...");
 
     const pages = [
         "https://www.yapcapitalist.com/",
@@ -126,30 +145,60 @@ async function scrapeWebsite() {
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    // Add comprehensive manual content about Yap Capitalist
-    // This ensures the bot has good information to work with
+    // Add some fallback content if scraping fails
+    if (scrapedText.length < 100) {
+        scrapedText = `
+=== YAP CAPITALIST INFORMATION ===
 
-fs.writeFileSync(DATA_FILE, scrapedText, "utf8");
-    // console.log(`✅ Content prepared! Manual content + ${successCount}/${pages.length} scraped pages`);
-    // console.log(`📁 Total content: ${scrapedText.length} characters saved to siteData.txt`);
+Yap Capitalist is a platform focused on helping entrepreneurs and business owners.
+
+Key Services:
+- Business consulting and advisory services
+- Investment opportunities and guidance  
+- Educational webinars and training programs
+- Application process for business opportunities
+
+Contact and Applications:
+- Main website: https://www.yapcapitalist.com/
+- Apply for services: https://www.yapcapitalist.com/apply
+- Join webinars: https://www.yapcapitalist.com/webinar
+- Application form: https://www.yapcapitalist.com/application-form
+
+This platform appears to focus on business growth, investment strategies, and entrepreneurial development.
+        `.trim();
+    }
+
+    // Use the safe write function
+    writeFileSync(DATA_FILE, scrapedText);
+    console.log(`✅ Content prepared! Manual content + ${successCount}/${pages.length} scraped pages`);
+    console.log(`📁 Total content: ${scrapedText.length} characters saved to ${DATA_FILE}`);
 }
 
 // -------------------
 // STEP 2: Initialize scraping
 // -------------------
 async function initializeData() {
-   if (!fs.existsSync(DATA_FILE)) {
-        // console.log("📂 siteData.txt not found, scraping website...");
-        await scrapeWebsite();
-    } else {
-       const existingData = fs.readFileSync(DATA_FILE, "utf8");
-        // console.log(`📂 Found existing siteData.txt: ${existingData.length} characters`);
-
-        // If file is too small, re-scrape
-        if (existingData.length < 100) {
-            // console.log("⚠️  Existing data too small, re-scraping...");
+    try {
+        console.log(`🔍 Checking for data file: ${DATA_FILE}`);
+        
+        if (!fs.existsSync(DATA_FILE)) {
+            console.log("📂 siteData.txt not found, scraping website...");
             await scrapeWebsite();
+        } else {
+            const existingData = fs.readFileSync(DATA_FILE, "utf8");
+            console.log(`📂 Found existing siteData.txt: ${existingData.length} characters`);
+
+            // If file is too small, re-scrape
+            if (existingData.length < 100) {
+                console.log("⚠️  Existing data too small, re-scraping...");
+                await scrapeWebsite();
+            }
         }
+    } catch (error) {
+        console.error("❌ Error initializing data:", error.message);
+        // Create fallback content
+        const fallbackContent = "Yap Capitalist - Business consulting and investment platform.";
+        writeFileSync(DATA_FILE, fallbackContent);
     }
 }
 
@@ -164,21 +213,24 @@ app.get("/debug", (req, res) => {
         if (!fs.existsSync(DATA_FILE)) {
             return res.json({
                 status: "error",
-                message: "DATA_FILE not found"
+                message: "DATA_FILE not found",
+                dataFile: DATA_FILE
             });
         }
 
-const siteData = fs.readFileSync(DATA_FILE, "utf8");
+        const siteData = fs.readFileSync(DATA_FILE, "utf8");
         res.json({
             status: "success",
+            dataFile: DATA_FILE,
             dataLength: siteData.length,
-            fullContent: siteData, // Show full content for debugging
+            preview: siteData.substring(0, 500) + "...", // Show preview instead of full content
             hasContent: siteData.length > 100
         });
     } catch (error) {
         res.json({
             status: "error",
-            message: error.message
+            message: error.message,
+            dataFile: DATA_FILE
         });
     }
 });
@@ -187,7 +239,7 @@ const siteData = fs.readFileSync(DATA_FILE, "utf8");
 app.get("/view-data", (req, res) => {
     try {
         if (!fs.existsSync(DATA_FILE)) {
-            return res.send("<h1>No data file found</h1>");
+            return res.send(`<h1>No data file found at: ${DATA_FILE}</h1>`);
         }
 
         const siteData = fs.readFileSync(DATA_FILE, "utf8");
@@ -196,6 +248,7 @@ app.get("/view-data", (req, res) => {
                 <head><title>Scraped Website Data</title></head>
                 <body style="font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px;">
                     <h1>Scraped Website Content</h1>
+                    <p><strong>File Path:</strong> ${DATA_FILE}</p>
                     <p><strong>Total Length:</strong> ${siteData.length} characters</p>
                     <hr>
                     <div style="white-space: pre-wrap; background: #f5f5f5; padding: 20px; border-radius: 5px;">
@@ -215,14 +268,15 @@ app.get("/view-data", (req, res) => {
 // -------------------
 app.get("/rescrape", async (req, res) => {
     try {
-        // console.log("🔄 Manual re-scrape requested");
+        console.log("🔄 Manual re-scrape requested");
         await scrapeWebsite();
         res.json({
             status: "success",
-            message: "Website re-scraped successfully"
+            message: "Website re-scraped successfully",
+            dataFile: DATA_FILE
         });
     } catch (error) {
-        // console.error("Re-scrape error:", error);
+        console.error("Re-scrape error:", error);
         res.status(500).json({
             status: "error",
             message: error.message
@@ -248,7 +302,7 @@ app.post("/chat", async (req, res) => {
 
         // Check if data file exists
         if (!fs.existsSync(DATA_FILE)) {
-            // console.log("❌ siteData.txt not found during chat request");
+            console.log("❌ siteData.txt not found during chat request");
             return res.json({
                 answer: "I'm still loading website information. Please try again in a moment."
             });
@@ -258,13 +312,13 @@ app.post("/chat", async (req, res) => {
 
         // Check if data is sufficient
         if (siteData.length < 100) {
-            // console.log("❌ Site data too short:", siteData.length, "characters");
+            console.log("❌ Site data too short:", siteData.length, "characters");
             return res.json({
                 answer: "I don't have enough website information loaded. Please try again later or contact support."
             });
         }
 
-        // console.log(`💬 Processing question: "${message}" (Data: ${siteData.length} chars)`);
+        console.log(`💬 Processing question: "${message}" (Data: ${siteData.length} chars)`);
 
         // Enhanced prompt with better instructions
         const prompt = `You are a knowledgeable assistant for Yap Capitalist. Use the website content below to answer questions accurately and specifically.
@@ -272,7 +326,7 @@ app.post("/chat", async (req, res) => {
         WEBSITE CONTENT:
         ${siteData}
 
-     TALK NATURALLY:
+        TALK NATURALLY:
         - Be conversational but not overly enthusiastic  
         - Use normal words people actually say
         - Don't be too short or too long
@@ -283,8 +337,7 @@ app.post("/chat", async (req, res) => {
 
         USER QUESTION: ${message}
 
-        Answer in 1–3 sentences. Make it complete and clear. Do not cut off mid-sentence.
-:`;
+        Answer in 1–3 sentences. Make it complete and clear. Do not cut off mid-sentence.`;
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
@@ -294,7 +347,7 @@ app.post("/chat", async (req, res) => {
         });
 
         const answer = completion.choices[0]?.message?.content || "I couldn't generate a response.";
-        // console.log(`✅ Response generated: ${answer.substring(0, 100)}...`);
+        console.log(`✅ Response generated: ${answer.substring(0, 100)}...`);
 
         res.json({ answer });
 
@@ -328,6 +381,7 @@ app.get("/health", (req, res) => {
     res.json({
         status: "ok",
         timestamp: new Date().toISOString(),
+        dataFile: DATA_FILE,
         hasData,
         dataSize,
         openaiConfigured: !!process.env.OPENAI_API_KEY
@@ -338,7 +392,9 @@ app.get("/health", (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📁 Data file location: ${DATA_FILE}`);
     console.log(`🔧 Debug endpoint: http://localhost:${PORT}/debug`);
+    console.log(`👀 View data: http://localhost:${PORT}/view-data`);
     console.log(`🔄 Re-scrape endpoint: http://localhost:${PORT}/rescrape`);
     console.log(`❤️  Health check: http://localhost:${PORT}/health`);
 });

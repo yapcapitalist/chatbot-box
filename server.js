@@ -15,7 +15,9 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: ['http://localhost:5173',
+    'https://www.yapcapitalist.com/',
+    'https://chatbot-box.onrender.com'],
     methods: ['GET', 'POST'],
     credentials: true
 }));
